@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Trip Fuel Cost</title>
+<title>Trip Planner</title>
 <meta name="theme-color" content="#0F1612">
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Fuel Cost">
+<meta name="apple-mobile-web-app-title" content="Trip Planner">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -142,7 +142,7 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>Trip fuel cost</h1>
+    <h1>Trip planner</h1>
     <span class="sync" id="sync">Saved on this device</span>
   </header>
 
@@ -739,7 +739,7 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   $("expBtn").onclick = ()=>{
     const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "trip-fuel-cost-backup.json"; a.click();
+    a.href = URL.createObjectURL(blob); a.download = "trip-planner-backup.json"; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
   };
   $("impBtn").onclick = ()=>$("impFile").click();
