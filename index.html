@@ -98,6 +98,13 @@ form.editor{display:grid;gap:12px;margin-top:12px;padding:14px;border-radius:10p
 form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 [hidden]{display:none!important}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{margin:0;display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font:500 15px Barlow,sans-serif}
+.seg input{accent-color:var(--sign);margin:0}
+.seg label:has(input:checked){border-color:var(--sign);background:rgba(63,166,115,.14)}
+.linkbtn{appearance:none;background:none;border:0;padding:0;color:var(--sign);font:600 14px Barlow,sans-serif;cursor:pointer;text-decoration:underline}
+.charge-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.charge-opts{display:grid;grid-template-columns:1fr 130px;gap:10px;margin-top:12px}
 
 .combo{position:relative}
 .combo input{padding-right:44px}
@@ -160,8 +167,8 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         <div class="pump-row">
           <div><div class="v dim" id="rKm">–</div><div class="k" id="rKmLbl">km</div></div>
           <div><div class="v dim" id="rT">–</div><div class="k" id="rTLbl">drive time</div></div>
-          <div><div class="v dim" id="rL">–</div><div class="k">litres</div></div>
-          <div><div class="v dim" id="rC">–</div><div class="k">¢ per litre</div></div>
+          <div><div class="v dim" id="rL">–</div><div class="k" id="rLLbl">litres</div></div>
+          <div><div class="v dim" id="rC">–</div><div class="k" id="rCLbl">¢ per litre</div></div>
         </div>
         <p class="pump-note" id="pumpNote"></p>
       </div>
@@ -228,8 +235,19 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
       <section class="card" aria-labelledby="priceH">
         <h2 id="priceH">Fuel price</h2>
-        <div class="prices" id="prices"></div>
-        <p class="hint">Enter the pump price in cents per litre, e.g. 199.9. Prices are saved until you change them.</p>
+        <div id="fuelBox">
+          <div class="prices" id="prices"></div>
+          <p class="hint">Enter the pump price in cents per litre, e.g. 199.9. Prices are saved until you change them.</p>
+        </div>
+        <div id="chargeBox" hidden>
+          <h3 class="sub" id="chargeH">Charging</h3>
+          <div class="charge-grid" id="chargePrices"></div>
+          <div class="charge-opts">
+            <div><label for="chargeSrc">Charge at</label><select class="field" id="chargeSrc"></select></div>
+            <div><label for="chargeLoss">Charging losses</label><div class="unit"><input type="number" id="chargeLoss" inputmode="decimal" min="0" max="40" step="1"><span>%</span></div></div>
+          </div>
+          <p class="hint">Starting prices are typical for NSW in 2026, so change them to your own. Dedicated EV plans can be as low as 8¢ overnight. Solar is the feed-in tariff you give up by using it yourself. Losses cover energy lost as heat while charging.</p>
+        </div>
       </section>
     </div>
 
@@ -238,15 +256,24 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         <h2 id="carsH">Your cars <button class="btn small" id="addCar" type="button">Add car</button></h2>
         <ul class="list" id="cars"></ul>
         <form class="editor" id="editor" hidden>
+          <div class="seg" role="radiogroup" aria-label="Car type">
+            <label><input type="radio" name="ctype" value="fuel" checked> Petrol or diesel</label>
+            <label><input type="radio" name="ctype" value="ev"> Electric</label>
+          </div>
           <div><label for="cName">Car name</label><input type="text" id="cName" placeholder="e.g. Family SUV" required maxlength="40"></div>
           <div class="two">
             <div>
-              <label for="cL100">Fuel use</label>
-              <div class="unit"><input type="number" id="cL100" inputmode="decimal" min="1" max="40" step="0.1" placeholder="7.5" required><span>L/100km</span></div>
+              <label for="cL100" id="cUseLbl">Fuel use</label>
+              <div class="unit"><input type="number" id="cL100" inputmode="decimal" min="1" max="40" step="0.1" placeholder="7.5" required><span id="cUseUnit">L/100km</span></div>
             </div>
-            <div><label for="cFuel">Fuel type</label><select class="field" id="cFuel"></select></div>
+            <div id="cFuelWrap"><label for="cFuel">Fuel type</label><select class="field" id="cFuel"></select></div>
+            <div id="cRangeWrap" hidden>
+              <label for="cRange">Range</label>
+              <div class="unit"><input type="number" id="cRange" inputmode="numeric" min="50" max="1500" step="1" placeholder="420"><span>km</span></div>
+            </div>
           </div>
-          <p class="hint" style="margin:0">Your trip computer's average is the best source. If you only know km per litre, divide 100 by it.</p>
+          <p class="hint" style="margin:0" id="cHint">Your trip computer's average is the best source. If you only know km per litre, divide 100 by it.</p>
+          <p class="hint" style="margin:0" id="cEvHint" hidden>Real-world use for most EVs is 14 to 20 kWh/100km. If the car shows Wh/km, divide by 10. Range is optional; trips longer than it are costed with a fast-charging stop. <button type="button" class="linkbtn" id="cTypical">Use typical EV figures</button></p>
           <div class="row" style="margin-top:0">
             <button class="btn" type="submit" id="saveCar">Save car</button>
             <button class="btn ghost" type="button" id="cancelCar">Cancel</button>
@@ -285,6 +312,8 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 (function(){
   const FUELS = {u91:"Unleaded 91", e10:"E10", u95:"Premium 95", u98:"Premium 98", diesel:"Diesel", lpg:"LPG"};
   const PRESETS = ["Home","Work"];
+  const CHARGE = {home:"Home, normal tariff", offpeak:"Home, off-peak", solar:"Home solar", fast:"Public fast charger"};
+  const CHARGE_DEFAULT = {home:32, offpeak:20, solar:5, fast:60};
   const LS_KEY = "tripFuelCost.v1";
   const AU_BBOX = "112.5,-44.2,154.5,-9.5";          // search is limited to Australia
   const PHOTON = "https://photon.komoot.io/api";      // address and place search (OpenStreetMap)
@@ -296,7 +325,7 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const okPt = p => p && isFinite(p.lat) && isFinite(p.lng) && Math.abs(p.lat)<=90 && Math.abs(p.lng)<=180;
 
-  function blank(){ return {cars:[], prices:{}, from:"", to:"", km:null, minutes:null, roundTrip:false, activeId:null, places:[], trips:{}, pts:{to:null, from:null}, route:null}; }
+  function blank(){ return {cars:[], prices:{}, from:"", to:"", km:null, minutes:null, roundTrip:false, activeId:null, places:[], trips:{}, pts:{to:null, from:null}, route:null, charge:{prices:{...CHARGE_DEFAULT}, src:"home", loss:10}}; }
   let state = blank(), editingId = null, pendingDelete = null, placeCtx = null;
 
   // ---------- storage (this browser only) ----------
@@ -304,7 +333,18 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     const out = blank();
     if(!s || typeof s !== "object") return out;
     if(Array.isArray(s.cars)) out.cars = s.cars.filter(c=>c && c.id && c.name && Number(c.l100)>0)
-      .map(c=>({id:String(c.id), name:String(c.name).slice(0,40), l100:Number(c.l100), fuel: FUELS[c.fuel] ? c.fuel : "u91"}));
+      .map(c=>{
+        const ev = c.type === "ev";
+        const o = {id:String(c.id), name:String(c.name).slice(0,40), type: ev ? "ev" : "fuel", l100:Number(c.l100), fuel: ev ? "elec" : (FUELS[c.fuel] ? c.fuel : "u91")};
+        if(ev && Number(c.range)>0) o.range = Number(c.range);
+        return o;
+      });
+    if(s.charge && typeof s.charge==="object"){
+      const cp = s.charge.prices || {};
+      for(const k in CHARGE){ const v = Number(cp[k]); out.charge.prices[k] = (cp[k]===null || cp[k]==="") ? null : (v>=0 && isFinite(v) && cp[k]!==undefined ? v : CHARGE_DEFAULT[k]); }
+      out.charge.src = CHARGE[s.charge.src] ? s.charge.src : "home";
+      const l = Number(s.charge.loss); out.charge.loss = (l>=0 && l<=40) ? l : 10;
+    }
     if(s.prices && typeof s.prices==="object") for(const k in FUELS){ const v = Number(s.prices[k]); if(v>0) out.prices[k]=v; }
     out.from = typeof s.from==="string" ? s.from : "";
     out.to = typeof s.to==="string" ? s.to : "";
@@ -324,10 +364,30 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
   // ---------- calc ----------
   const tripKm = () => state.km ? state.km * (state.roundTrip ? 2 : 1) : null;
+  const isEV = c => c && c.type === "ev";
   function costFor(car){
-    const km = tripKm(); const price = state.prices[car.fuel];
+    const km = tripKm();
+    if(isEV(car)){
+      const ch = state.charge, lossF = 1 + (ch.loss||0)/100;
+      const p = ch.prices[ch.src], pf = ch.prices.fast;
+      if(!km) return {km, litres:null, price:p, cost:null, fastKm:0};
+      const fastKm = (car.range && km > car.range && ch.src !== "fast") ? km - car.range : 0;
+      const kwhMain = (km - fastKm) * car.l100 / 100 * lossF, kwhFast = fastKm * car.l100 / 100 * lossF;
+      const kwh = kwhMain + kwhFast;
+      const priced = p!=null && (fastKm===0 || pf!=null);
+      const cost = priced ? (kwhMain * p + kwhFast * (pf||0)) / 100 : null;
+      return {km, litres:kwh, price: cost!=null && kwh ? cost/kwh*100 : p, cost, fastKm};
+    }
+    const price = state.prices[car.fuel];
     const litres = km ? km * car.l100 / 100 : null;
-    return {km, litres, price, cost:(litres!=null && price) ? litres * price / 100 : null};
+    return {km, litres, price, cost:(litres!=null && price) ? litres * price / 100 : null, fastKm:0};
+  }
+  function missingPrice(car){
+    if(!isEV(car)) return "Add a price for " + FUELS[car.fuel] + ".";
+    const ch = state.charge; const r = costFor(car);
+    if(ch.prices[ch.src]==null) return "Add a price for " + CHARGE[ch.src].toLowerCase() + ".";
+    if(r.fastKm>0) return "Add a fast-charger price.";
+    return "";
   }
   function setV(id, text, on){ const el=$(id); el.textContent=text; el.classList.toggle("dim", !on); }
   function renderReadout(){
@@ -343,16 +403,53 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     const tm = state.minutes ? Math.round(state.minutes * (state.roundTrip ? 2 : 1)) : null;
     setV("rT", tm ? (tm>=60 ? Math.floor(tm/60) + "h " + String(tm%60).padStart(2,"0") + "m" : tm + " min") : "–", !!tm);
     $("rTLbl").textContent = state.roundTrip ? "time return" : "drive time";
+    const ev = isEV(car);
     setV("rL", r.litres!=null ? num(r.litres,1) : "–", r.litres!=null);
-    setV("rC", r.price ? num(r.price,1) : "–", !!r.price);
+    $("rLLbl").textContent = ev ? "kWh" : "litres";
+    setV("rC", r.price!=null ? num(r.price,1) : "–", r.price!=null);
+    $("rCLbl").textContent = ev ? "¢ per kWh" : "¢ per litre";
     let note = "";
     if(!state.cars.length) note = "Add a car to start.";
     else if(!state.km) note = "Enter a trip or distance.";
-    else if(!r.price) note = "Add a price for " + FUELS[car.fuel] + ".";
+    else if(r.cost==null) note = missingPrice(car);
+    else if(ev){
+      const ch = state.charge;
+      note = car.name + " at " + num(car.l100) + " kWh/100km, charging " + ({home:"at home on a normal tariff", offpeak:"at home off-peak", solar:"from home solar", fast:"at a public fast charger"})[ch.src] + ", including " + num(ch.loss,0) + "% charging losses.";
+      if(r.fastKm>0) note += " The " + num(r.fastKm,0) + " km beyond its " + num(car.range,0) + " km range is costed at the fast-charger price.";
+    }
     else note = car.name + " at " + num(car.l100) + " L/100km on " + FUELS[car.fuel] + ".";
     $("pumpNote").textContent = note;
   }
-  function usedFuels(){ const set = new Set(state.cars.map(c=>c.fuel)); if(!set.size) set.add("u91"); return Object.keys(FUELS).filter(k=>set.has(k)); }
+  function usedFuels(){
+    const fuelCars = state.cars.filter(c=>!isEV(c));
+    const set = new Set(fuelCars.map(c=>c.fuel));
+    if(!state.cars.length) set.add("u91");
+    return Object.keys(FUELS).filter(k=>set.has(k));
+  }
+  function renderCharging(){
+    const hasEV = state.cars.some(isEV);
+    $("chargeBox").hidden = !hasEV;
+    const fuels = usedFuels();
+    $("fuelBox").hidden = !fuels.length;
+    $("priceH").textContent = hasEV ? (fuels.length ? "Fuel and charging prices" : "Charging prices") : "Fuel price";
+    $("chargeH").hidden = !fuels.length;
+    if(!hasEV) return;
+    const box = $("chargePrices"); box.innerHTML = "";
+    Object.keys(CHARGE).forEach(k=>{
+      const d = document.createElement("div"); const id = "ch_" + k;
+      d.innerHTML = '<label></label><div class="unit"><input type="number" inputmode="decimal" min="0" step="0.1"><span>¢/kWh</span></div>';
+      const lab = d.querySelector("label"); lab.textContent = CHARGE[k]; lab.htmlFor = id;
+      const inp = d.querySelector("input"); inp.id = id; inp.placeholder = CHARGE_DEFAULT[k];
+      if(state.charge.prices[k]!=null) inp.value = state.charge.prices[k];
+      inp.addEventListener("input", ()=>{ const v = parseFloat(inp.value); state.charge.prices[k] = (v>=0) ? v : null; renderOutputs(); save(); });
+      box.append(d);
+    });
+    const sel = $("chargeSrc"); sel.innerHTML = "";
+    Object.entries(CHARGE).forEach(([k,v])=>{ const o=document.createElement("option"); o.value=k; o.textContent=v; if(k===state.charge.src) o.selected=true; sel.append(o); });
+    $("chargeLoss").value = state.charge.loss;
+  }
+  $("chargeSrc").addEventListener("change", e=>{ state.charge.src = e.target.value; renderOutputs(); save(); });
+  $("chargeLoss").addEventListener("input", e=>{ const v = parseFloat(e.target.value); state.charge.loss = (v>=0 && v<=40) ? v : 0; renderOutputs(); save(); });
   function renderPrices(){
     const box = $("prices"); box.innerHTML = "";
     usedFuels().forEach(k=>{
@@ -377,7 +474,7 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
       const li = document.createElement("li"); li.className="item";
       li.innerHTML = '<div class="who"><div class="nm"></div><div class="sp"></div></div><div class="acts"><button class="btn ghost small" type="button" data-a="edit">Edit</button><button class="btn danger small" type="button" data-a="del">Delete</button></div>';
       li.querySelector(".nm").textContent = c.name;
-      li.querySelector(".sp").textContent = num(c.l100) + " L/100km, " + FUELS[c.fuel];
+      li.querySelector(".sp").textContent = isEV(c) ? num(c.l100) + " kWh/100km, electric" + (c.range ? ", " + num(c.range,0) + " km range" : "") : num(c.l100) + " L/100km, " + FUELS[c.fuel];
       li.querySelector('[data-a=edit]').onclick = ()=>openCarEditor(c);
       const del = li.querySelector('[data-a=del]');
       if(pendingDelete==="car:"+c.id) del.textContent = "Tap to confirm";
@@ -406,9 +503,10 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
       b.querySelector(".nm").textContent = r.c.name;
       b.querySelector(".cost").textContent = r.cost!=null ? money.format(r.cost) : "–";
       b.querySelector(".bar i").style.width = r.cost!=null && max ? (Math.max(4, r.cost/max*100)) + "%" : "0%";
-      b.querySelector(".l").textContent = r.litres!=null ? num(r.litres) + " L at " + num(r.c.l100) + " L/100km" : num(r.c.l100) + " L/100km";
+      const u = isEV(r.c) ? ["kWh","kWh/100km"] : ["L","L/100km"];
+      b.querySelector(".l").textContent = (r.litres!=null ? num(r.litres) + " " + u[0] + " at " : "") + num(r.c.l100) + " " + u[1] + (isEV(r.c) ? ", electric" : "");
       const d = b.querySelector(".d");
-      if(r.cost==null) d.textContent = !state.km ? "Needs a distance" : "Needs a " + FUELS[r.c.fuel] + " price";
+      if(r.cost==null) d.textContent = !state.km ? "Needs a distance" : (isEV(r.c) ? "Needs a charging price" : "Needs a " + FUELS[r.c.fuel] + " price");
       else if(r.cost===min){ d.textContent = "Cheapest"; d.className="d best"; }
       else { d.textContent = "+" + money.format(r.cost-min); d.className="d more"; }
       b.onclick = ()=>{ state.activeId = r.c.id; save(); renderOutputs(); };
@@ -497,10 +595,26 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   // ---------- car editor ----------
   const fuelSel = $("cFuel");
   Object.entries(FUELS).forEach(([k,v])=>{ const o=document.createElement("option"); o.value=k; o.textContent=v; fuelSel.append(o); });
+  const carType = () => (document.querySelector('input[name=ctype]:checked') || {}).value || "fuel";
+  function setCarType(t){
+    document.querySelector('input[name=ctype][value="'+t+'"]').checked = true;
+    const ev = t === "ev";
+    $("cUseLbl").textContent = ev ? "Energy use" : "Fuel use";
+    $("cUseUnit").textContent = ev ? "kWh/100km" : "L/100km";
+    $("cL100").placeholder = ev ? "16" : "7.5";
+    $("cL100").max = ev ? 60 : 40;
+    $("cFuelWrap").hidden = ev; $("cRangeWrap").hidden = !ev;
+    $("cHint").hidden = ev; $("cEvHint").hidden = !ev;
+    $("cName").placeholder = ev ? "e.g. Electric SUV" : "e.g. Family SUV";
+  }
+  document.querySelectorAll('input[name=ctype]').forEach(r=>r.addEventListener("change", ()=>setCarType(carType())));
+  $("cTypical").onclick = ()=>{ $("cL100").value = 16; $("cRange").value = 420; if(!$("cName").value.trim()) $("cName").value = "Typical EV"; };
   function openCarEditor(car){
     editingId = car ? car.id : null;
+    setCarType(car && isEV(car) ? "ev" : "fuel");
     $("cName").value = car ? car.name : ""; $("cL100").value = car ? car.l100 : "";
-    fuelSel.value = car ? car.fuel : (state.cars[0]?.fuel || "u91");
+    $("cRange").value = car && car.range ? car.range : "";
+    fuelSel.value = car && !isEV(car) ? car.fuel : (state.cars.find(c=>!isEV(c))?.fuel || "u91");
     $("saveCar").textContent = car ? "Save changes" : "Save car";
     $("editor").hidden = false; $("cName").focus();
   }
@@ -511,8 +625,11 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     e.preventDefault();
     const name = $("cName").value.trim(), l100 = parseFloat($("cL100").value);
     if(!name || !(l100>0)) return;
-    if(editingId){ const c = state.cars.find(x=>x.id===editingId); if(c){ c.name=name; c.l100=l100; c.fuel=fuelSel.value; } }
-    else { const id = uid("c"); state.cars.push({id, name, l100, fuel:fuelSel.value}); state.activeId = id; }
+    const type = carType(), range = parseFloat($("cRange").value);
+    const data = {name, l100, type, fuel: type==="ev" ? "elec" : fuelSel.value};
+    if(type==="ev" && range>0) data.range = range;
+    if(editingId){ const c = state.cars.find(x=>x.id===editingId); if(c){ delete c.range; Object.assign(c, data); } }
+    else { const id = uid("c"); state.cars.push({id, ...data}); state.activeId = id; }
     closeCarEditor(); save(); renderAll();
   });
 
@@ -764,7 +881,7 @@ form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   });
 
   function renderOutputs(){ renderReadout(); renderCompare(); }
-  function renderAll(){ renderPrices(); renderCars(); renderPlaces(); renderTrips(); renderChips(); renderGmaps(); renderOutputs(); }
+  function renderAll(){ renderPrices(); renderCharging(); renderCars(); renderPlaces(); renderTrips(); renderChips(); renderGmaps(); renderOutputs(); }
 
   state = sanitize(load());
   hydrateInputs(); renderAll();
