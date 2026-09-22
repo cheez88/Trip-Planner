@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trip Fuel Cost</title>
+<meta name="theme-color" content="#0F1612">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fuel Cost">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+:root{
+  --bg:#0F1612;--surface:#17201B;--ink:#E3EAE5;--muted:#96A69C;--line:#2B3931;
+  --sign:#3FA673;--sign-ink:#07120C;--panel:#070C09;--panel-line:#25322A;--panel-ink:#B9C6BE;
+  --digit:#FFB21A;--digit-dim:#4A3E20;--good:#4CC98A;--warn:#F08A5D;--focus:#6AB0F5;
+  color-scheme:dark;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 Barlow,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:16px 16px 40px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 2px 14px}
+header.top h1{margin:0;font:700 26px/1.1 "Barlow Condensed","Arial Narrow",sans-serif}
+header.top .sync{font-size:13px;color:var(--muted)}
+.grid{display:grid;gap:16px}
+@media (min-width:860px){.grid{grid-template-columns:1.05fr .95fr;align-items:start}}
+.col{display:grid;gap:16px;min-width:0}
+
+.pump{background:var(--panel);color:var(--panel-ink);border-radius:14px;padding:16px 18px 14px;border:1px solid var(--panel-line)}
+.pump-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+.pump-head .lbl{font-size:14px}
+.pump select{background:transparent;color:var(--panel-ink);border:1px solid var(--panel-line);border-radius:8px;padding:5px 8px;font:500 14px Barlow,sans-serif;max-width:60%}
+.pump select option{color:#111;background:#fff}
+.total{display:flex;align-items:baseline;gap:6px;font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:600;color:var(--digit);font-variant-numeric:tabular-nums;line-height:1}
+.total .cur{font-size:34px;opacity:.85}
+.total .amt{font-size:clamp(64px,19vw,104px);text-shadow:0 0 18px rgba(255,178,26,.25)}
+.total.empty{color:var(--digit-dim)}
+.total.empty .amt{text-shadow:none}
+.pump-row{display:grid;grid-template-columns:repeat(4,auto);justify-content:space-between;border-top:1px solid var(--panel-line);margin-top:12px;padding-top:10px}
+.pump-row > div{padding:0 10px;border-left:1px solid var(--panel-line);min-width:0}
+.pump-row > div:first-child{padding-left:0;border-left:0}
+.pump-row > div:last-child{padding-right:0}
+.pump-row .v{font:600 26px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;color:var(--digit);font-variant-numeric:tabular-nums}
+.pump-row .v.dim{color:var(--digit-dim)}
+.pump-row .k{font-size:13px;white-space:nowrap}
+@media (max-width:400px){.pump-row .v{font-size:23px}.pump-row > div{padding:0 7px}.pump-row .k{font-size:12px}}
+.pump-note{font-size:13px;margin:10px 0 0;min-height:1em}
+
+section.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+section.card h2{margin:0 0 12px;font:700 21px/1.15 "Barlow Condensed","Arial Narrow",sans-serif;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h3.sub{font:600 17px/1.2 "Barlow Condensed","Arial Narrow",sans-serif;margin:18px 0 10px}
+label{display:block;font-size:14px;font-weight:500;margin:0 0 4px}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
+input[type=text],input[type=number],select.field{width:100%;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:500 16px Barlow,sans-serif}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.route{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.route .stack{display:grid;gap:14px;min-width:0}
+.swap{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:20px;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{appearance:none;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 12px;font:500 14px Barlow,sans-serif;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--sign);border-color:var(--sign);color:var(--sign-ink)}
+.chip.ghost{border-style:dashed;color:var(--muted);background:transparent}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.btn{appearance:none;border:0;border-radius:9px;padding:11px 16px;font:600 15px Barlow,sans-serif;cursor:pointer;background:var(--sign);color:var(--sign-ink)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:14px}
+.btn.danger{background:transparent;color:var(--warn);border:1px solid currentColor}
+.dist{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;margin-top:14px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;padding-bottom:10px;cursor:pointer;white-space:nowrap}
+.toggle input{width:20px;height:20px;accent-color:var(--sign)}
+.status{font-size:14px;color:var(--muted);margin:10px 0 0;min-height:1.2em}
+.status.err{color:var(--warn)}
+.prices{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.unit{position:relative}
+.unit input{padding-right:44px}
+.unit span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
+a.maplink{color:var(--sign);font-weight:600}
+
+.list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.item .who{flex:1;min-width:0}
+.item .nm{font-weight:600;overflow-wrap:anywhere}
+.item .sp{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+.item .acts{display:flex;gap:6px}
+.empty-state{border:1px dashed var(--line);border-radius:10px;padding:14px 16px;color:var(--muted);font-size:15px}
+form.editor{display:grid;gap:12px;margin-top:12px;padding:14px;border-radius:10px;border:1px solid var(--sign);background:var(--bg)}
+form.editor .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+[hidden]{display:none!important}
+
+.combo{position:relative}
+.combo input{padding-right:44px}
+.clr{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
+@media (hover:hover){.clr:hover{background:var(--line);color:var(--ink)}}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:1200;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-height:340px;overflow:auto;padding:4px}
+.opt{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:8px;cursor:pointer}
+.opt[aria-selected=true]{background:var(--bg);box-shadow:inset 3px 0 0 var(--sign)}
+@media (hover:hover){.opt:hover{background:var(--bg)}}
+.opt .tx{min-width:0;flex:1}
+.opt .t{font-weight:600;overflow-wrap:anywhere}
+.opt .s{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.opt .k{font-size:12px;color:var(--muted);white-space:nowrap}
+.sugg .msg{padding:8px 10px;font-size:13px;color:var(--muted)}
+
+#map{height:320px;border-radius:10px;border:1px solid var(--line);background:#0C1A21;z-index:0}
+.leaflet-container{font:400 13px Barlow,sans-serif;background:#0C1A21}
+.leaflet-control-zoom a{background:var(--surface)!important;color:var(--ink)!important;border-color:var(--line)!important}
+.leaflet-control-zoom a:hover{background:var(--bg)!important}
+.leaflet-bar{border:1px solid var(--line)!important;box-shadow:0 2px 10px rgba(0,0,0,.5)!important}
+.leaflet-control-attribution{background:rgba(7,12,9,.8)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--sign)!important}
+.pin{display:flex;align-items:center;gap:6px;white-space:nowrap;transform:translate(-50%,-50%)}
+.pin b{font:700 13px Barlow,sans-serif;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 6px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.pin i{width:14px;height:14px;border-radius:50%;flex:none;border:2px solid var(--panel)}
+
+.cmp{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.cmp button{all:unset;display:block;width:100%;cursor:pointer;border-radius:10px;padding:10px 12px;border:1px solid var(--line);background:var(--bg);box-sizing:border-box}
+.cmp button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.cmp button[aria-pressed=true]{border-color:var(--sign);box-shadow:inset 0 0 0 1px var(--sign)}
+.cmp .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cmp .nm{font-weight:600;overflow-wrap:anywhere}
+.cmp .cost{font:600 24px/1 "Barlow Condensed","Arial Narrow",sans-serif;font-variant-numeric:tabular-nums}
+.cmp .bar{height:8px;border-radius:4px;background:var(--line);margin:8px 0 6px;overflow:hidden}
+.cmp .bar i{display:block;height:100%;background:var(--sign);border-radius:4px}
+.cmp .meta{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--muted)}
+.cmp .best{color:var(--good);font-weight:600}
+.cmp .more{color:var(--warn);font-weight:500}
+.saving{font-size:15px;margin:12px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Trip fuel cost</h1>
+    <span class="sync" id="sync">Saved on this device</span>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <div class="pump" aria-live="polite">
+        <div class="pump-head">
+          <span class="lbl">Trip cost</span>
+          <select id="activeCar" aria-label="Car used for this trip"></select>
+        </div>
+        <div class="total empty" id="total"><span class="cur">$</span><span class="amt" id="amt">0.00</span></div>
+        <div class="pump-row">
+          <div><div class="v dim" id="rKm">–</div><div class="k" id="rKmLbl">km</div></div>
+          <div><div class="v dim" id="rT">–</div><div class="k" id="rTLbl">drive time</div></div>
+          <div><div class="v dim" id="rL">–</div><div class="k">litres</div></div>
+          <div><div class="v dim" id="rC">–</div><div class="k">¢ per litre</div></div>
+        </div>
+        <p class="pump-note" id="pumpNote"></p>
+      </div>
+
+      <section class="card" aria-labelledby="tripH">
+        <h2 id="tripH">Trip</h2>
+        <div class="route">
+          <div class="stack">
+            <div id="field_to">
+              <label for="to">To</label>
+              <div class="combo">
+                <input type="text" id="to" placeholder="Search a place, address or suburb" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sugg_to">
+                <button type="button" class="clr" id="clr_to" aria-label="Clear" hidden>×</button>
+                <div class="sugg" id="sugg_to" role="listbox" hidden></div>
+              </div>
+              <div class="chips" id="chips_to"></div>
+            </div>
+            <div id="field_from">
+              <label for="from">From</label>
+              <div class="combo">
+                <input type="text" id="from" placeholder="Search a place, address or suburb" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sugg_from">
+                <button type="button" class="clr" id="clr_from" aria-label="Clear" hidden>×</button>
+                <div class="sugg" id="sugg_from" role="listbox" hidden></div>
+              </div>
+              <div class="chips" id="chips_from"></div>
+            </div>
+          </div>
+          <button class="swap" id="swap" type="button" aria-label="Swap to and from" title="Swap">⇅</button>
+        </div>
+
+        <form class="editor" id="placeEditor" hidden>
+          <div>
+            <label for="pLabel">Label</label>
+            <input type="text" id="pLabel" placeholder="e.g. Home" maxlength="24" required>
+            <div class="presets" id="presets"></div>
+          </div>
+          <div><label for="pAddr">Address or place</label><input type="text" id="pAddr" placeholder="Street address, suburb or town" required maxlength="160"></div>
+          <div class="row" style="margin-top:0">
+            <button class="btn" type="submit" id="savePlace">Save place</button>
+            <button class="btn ghost" type="button" id="cancelPlace">Cancel</button>
+          </div>
+        </form>
+
+        <div class="row">
+          <button class="btn" id="getDist" type="button">Get distance and map</button>
+          <button class="btn ghost" id="useLoc" type="button">Use my location</button>
+        </div>
+        <p class="status" id="distStatus"></p>
+        <div class="dist">
+          <div>
+            <label for="km">One-way distance</label>
+            <div class="unit"><input type="number" id="km" inputmode="decimal" min="0" step="0.1" placeholder="0"><span>km</span></div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="rt"> Return trip</label>
+        </div>
+        <p class="hint" style="margin-top:8px">Change the distance and it's remembered for this trip. <a id="gmaps" class="maplink" href="#" target="_blank" rel="noopener" hidden>Open in Google Maps</a></p>
+      </section>
+
+      <section class="card" aria-labelledby="mapH" id="mapCard" hidden>
+        <h2 id="mapH">Route map <button class="btn small ghost" type="button" id="zFit">Fit route</button></h2>
+        <div id="map"></div>
+        <p class="hint" id="mapNote"></p>
+      </section>
+
+      <section class="card" aria-labelledby="priceH">
+        <h2 id="priceH">Fuel price</h2>
+        <div class="prices" id="prices"></div>
+        <p class="hint">Enter the pump price in cents per litre, e.g. 199.9. Prices are saved until you change them.</p>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card" aria-labelledby="carsH">
+        <h2 id="carsH">Your cars <button class="btn small" id="addCar" type="button">Add car</button></h2>
+        <ul class="list" id="cars"></ul>
+        <form class="editor" id="editor" hidden>
+          <div><label for="cName">Car name</label><input type="text" id="cName" placeholder="e.g. Family SUV" required maxlength="40"></div>
+          <div class="two">
+            <div>
+              <label for="cL100">Fuel use</label>
+              <div class="unit"><input type="number" id="cL100" inputmode="decimal" min="1" max="40" step="0.1" placeholder="7.5" required><span>L/100km</span></div>
+            </div>
+            <div><label for="cFuel">Fuel type</label><select class="field" id="cFuel"></select></div>
+          </div>
+          <p class="hint" style="margin:0">Your trip computer's average is the best source. If you only know km per litre, divide 100 by it.</p>
+          <div class="row" style="margin-top:0">
+            <button class="btn" type="submit" id="saveCar">Save car</button>
+            <button class="btn ghost" type="button" id="cancelCar">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="cmpH" id="cmpCard" hidden>
+        <h2 id="cmpH">Compare cars</h2>
+        <ul class="cmp" id="cmp"></ul>
+        <p class="saving" id="saving"></p>
+      </section>
+
+      <section class="card" aria-labelledby="placesH">
+        <h2 id="placesH">Saved places <button class="btn small ghost" id="addPlace" type="button">Add place</button></h2>
+        <ul class="list" id="places"></ul>
+        <h3 class="sub" id="tripsH" hidden>Saved trip distances</h3>
+        <ul class="list" id="trips"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Your data</h2>
+        <p class="hint" style="margin-top:0">Cars, places, prices and trips are stored in this browser only. Nothing is sent anywhere except the place and route lookups.</p>
+        <div class="row">
+          <button class="btn ghost small" id="expBtn" type="button">Export backup</button>
+          <button class="btn ghost small" id="impBtn" type="button">Import backup</button>
+          <input type="file" id="impFile" accept="application/json" hidden>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function(){
+  const FUELS = {u91:"Unleaded 91", e10:"E10", u95:"Premium 95", u98:"Premium 98", diesel:"Diesel", lpg:"LPG"};
+  const PRESETS = ["Home","Work"];
+  const LS_KEY = "tripFuelCost.v1";
+  const AU_BBOX = "112.5,-44.2,154.5,-9.5";          // search is limited to Australia
+  const PHOTON = "https://photon.komoot.io/api";      // address and place search (OpenStreetMap)
+  const OSRM = "https://router.project-osrm.org/route/v1/driving"; // road routing (OpenStreetMap)
+  const $ = id => document.getElementById(id);
+  const money = new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"});
+  const num = (n,d=1) => Number(n).toLocaleString("en-AU",{minimumFractionDigits:d,maximumFractionDigits:d});
+  const norm = s => String(s||"").trim().toLowerCase();
+  const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  const okPt = p => p && isFinite(p.lat) && isFinite(p.lng) && Math.abs(p.lat)<=90 && Math.abs(p.lng)<=180;
+
+  function blank(){ return {cars:[], prices:{}, from:"", to:"", km:null, minutes:null, roundTrip:false, activeId:null, places:[], trips:{}, pts:{to:null, from:null}, route:null}; }
+  let state = blank(), editingId = null, pendingDelete = null, placeCtx = null;
+
+  // ---------- storage (this browser only) ----------
+  function sanitize(s){
+    const out = blank();
+    if(!s || typeof s !== "object") return out;
+    if(Array.isArray(s.cars)) out.cars = s.cars.filter(c=>c && c.id && c.name && Number(c.l100)>0)
+      .map(c=>({id:String(c.id), name:String(c.name).slice(0,40), l100:Number(c.l100), fuel: FUELS[c.fuel] ? c.fuel : "u91"}));
+    if(s.prices && typeof s.prices==="object") for(const k in FUELS){ const v = Number(s.prices[k]); if(v>0) out.prices[k]=v; }
+    out.from = typeof s.from==="string" ? s.from : "";
+    out.to = typeof s.to==="string" ? s.to : "";
+    out.km = Number(s.km)>0 ? Number(s.km) : null;
+    out.minutes = Number(s.minutes)>0 ? Number(s.minutes) : null;
+    out.roundTrip = !!s.roundTrip;
+    out.activeId = out.cars.some(c=>c.id===s.activeId) ? s.activeId : (out.cars[0]?.id ?? null);
+    if(Array.isArray(s.places)) out.places = s.places.filter(p=>p && p.id && p.label && p.address)
+      .map(p=>{ const o = {id:String(p.id), label:String(p.label).slice(0,24), address:String(p.address).slice(0,160)}; if(okPt(p)){ o.lat=+p.lat; o.lng=+p.lng; } return o; });
+    if(s.trips && typeof s.trips==="object") Object.entries(s.trips).forEach(([k,v])=>{ if(v && Number(v.km)>0 && k.includes("→")) out.trips[String(k).slice(0,400)] = {km:+v.km, min: Number(v.min)>0 ? +v.min : null, t:+v.t||0, a:String(v.a||"").slice(0,160), b:String(v.b||"").slice(0,160)}; });
+    if(s.pts) ["to","from"].forEach(f=>{ if(okPt(s.pts[f])) out.pts[f] = {lat:+s.pts[f].lat, lng:+s.pts[f].lng}; });
+    if(s.route && Array.isArray(s.route.line) && s.route.line.length) out.route = {key:String(s.route.key||""), line:s.route.line.filter(p=>Array.isArray(p)&&isFinite(p[0])&&isFinite(p[1])).map(p=>[+p[0],+p[1]])};
+    return out;
+  }
+  function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ $("sync").textContent = "Couldn't save to this browser"; } }
+  function load(){ try{ const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+
+  // ---------- calc ----------
+  const tripKm = () => state.km ? state.km * (state.roundTrip ? 2 : 1) : null;
+  function costFor(car){
+    const km = tripKm(); const price = state.prices[car.fuel];
+    const litres = km ? km * car.l100 / 100 : null;
+    return {km, litres, price, cost:(litres!=null && price) ? litres * price / 100 : null};
+  }
+  function setV(id, text, on){ const el=$(id); el.textContent=text; el.classList.toggle("dim", !on); }
+  function renderReadout(){
+    const car = state.cars.find(c=>c.id===state.activeId);
+    const sel = $("activeCar"); sel.innerHTML = "";
+    if(!state.cars.length){ const o=document.createElement("option"); o.textContent="No car yet"; sel.append(o); sel.disabled=true; }
+    else { sel.disabled=false; state.cars.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; if(c.id===state.activeId) o.selected=true; sel.append(o); }); }
+    const r = car ? costFor(car) : {km:tripKm(), litres:null, price:null, cost:null};
+    $("amt").textContent = r.cost!=null ? num(r.cost,2) : "0.00";
+    $("total").classList.toggle("empty", r.cost==null);
+    setV("rKm", r.km!=null ? num(r.km, r.km<100?1:0) : "–", r.km!=null);
+    $("rKmLbl").textContent = state.roundTrip ? "km return" : "km";
+    const tm = state.minutes ? Math.round(state.minutes * (state.roundTrip ? 2 : 1)) : null;
+    setV("rT", tm ? (tm>=60 ? Math.floor(tm/60) + "h " + String(tm%60).padStart(2,"0") + "m" : tm + " min") : "–", !!tm);
+    $("rTLbl").textContent = state.roundTrip ? "time return" : "drive time";
+    setV("rL", r.litres!=null ? num(r.litres,1) : "–", r.litres!=null);
+    setV("rC", r.price ? num(r.price,1) : "–", !!r.price);
+    let note = "";
+    if(!state.cars.length) note = "Add a car to start.";
+    else if(!state.km) note = "Enter a trip or distance.";
+    else if(!r.price) note = "Add a price for " + FUELS[car.fuel] + ".";
+    else note = car.name + " at " + num(car.l100) + " L/100km on " + FUELS[car.fuel] + ".";
+    $("pumpNote").textContent = note;
+  }
+  function usedFuels(){ const set = new Set(state.cars.map(c=>c.fuel)); if(!set.size) set.add("u91"); return Object.keys(FUELS).filter(k=>set.has(k)); }
+  function renderPrices(){
+    const box = $("prices"); box.innerHTML = "";
+    usedFuels().forEach(k=>{
+      const d = document.createElement("div"); const id = "p_" + k;
+      d.innerHTML = '<label></label><div class="unit"><input type="number" inputmode="decimal" min="0" step="0.1" placeholder="199.9"><span>¢/L</span></div>';
+      const lab = d.querySelector("label"); lab.textContent = FUELS[k]; lab.htmlFor = id;
+      const inp = d.querySelector("input"); inp.id = id;
+      if(state.prices[k]) inp.value = state.prices[k];
+      inp.addEventListener("input", ()=>{ const v = parseFloat(inp.value); if(v>0) state.prices[k]=v; else delete state.prices[k]; renderOutputs(); save(); });
+      box.append(d);
+    });
+  }
+  function confirmDelete(key, doDelete, rerender){
+    if(pendingDelete===key){ pendingDelete=null; doDelete(); return; }
+    pendingDelete = key; rerender();
+    setTimeout(()=>{ if(pendingDelete===key){ pendingDelete=null; rerender(); } }, 3500);
+  }
+  function renderCars(){
+    const ul = $("cars"); ul.innerHTML = "";
+    if(!state.cars.length){ const li=document.createElement("li"); li.className="empty-state"; li.textContent="No cars saved yet. Add one with its average fuel use and it'll be here next time."; ul.append(li); return; }
+    state.cars.forEach(c=>{
+      const li = document.createElement("li"); li.className="item";
+      li.innerHTML = '<div class="who"><div class="nm"></div><div class="sp"></div></div><div class="acts"><button class="btn ghost small" type="button" data-a="edit">Edit</button><button class="btn danger small" type="button" data-a="del">Delete</button></div>';
+      li.querySelector(".nm").textContent = c.name;
+      li.querySelector(".sp").textContent = num(c.l100) + " L/100km, " + FUELS[c.fuel];
+      li.querySelector('[data-a=edit]').onclick = ()=>openCarEditor(c);
+      const del = li.querySelector('[data-a=del]');
+      if(pendingDelete==="car:"+c.id) del.textContent = "Tap to confirm";
+      del.onclick = ()=>confirmDelete("car:"+c.id, ()=>{
+        state.cars = state.cars.filter(x=>x.id!==c.id);
+        if(state.activeId===c.id) state.activeId = state.cars[0]?.id ?? null;
+        if(editingId===c.id) closeCarEditor();
+        save(); renderAll();
+      }, renderCars);
+      ul.append(li);
+    });
+  }
+  function renderCompare(){
+    const card = $("cmpCard");
+    if(state.cars.length < 2){ card.hidden = true; return; }
+    card.hidden = false;
+    const rows = state.cars.map(c=>({c, ...costFor(c)}));
+    const priced = rows.filter(r=>r.cost!=null).sort((a,b)=>a.cost-b.cost);
+    const unpriced = rows.filter(r=>r.cost==null);
+    const max = priced.length ? priced[priced.length-1].cost : 0, min = priced.length ? priced[0].cost : 0;
+    const ul = $("cmp"); ul.innerHTML = "";
+    [...priced, ...unpriced].forEach(r=>{
+      const li = document.createElement("li"); const b = document.createElement("button"); b.type="button";
+      b.setAttribute("aria-pressed", String(r.c.id===state.activeId));
+      b.innerHTML = '<div class="top"><span class="nm"></span><span class="cost"></span></div><div class="bar"><i></i></div><div class="meta"><span class="l"></span><span class="d"></span></div>';
+      b.querySelector(".nm").textContent = r.c.name;
+      b.querySelector(".cost").textContent = r.cost!=null ? money.format(r.cost) : "–";
+      b.querySelector(".bar i").style.width = r.cost!=null && max ? (Math.max(4, r.cost/max*100)) + "%" : "0%";
+      b.querySelector(".l").textContent = r.litres!=null ? num(r.litres) + " L at " + num(r.c.l100) + " L/100km" : num(r.c.l100) + " L/100km";
+      const d = b.querySelector(".d");
+      if(r.cost==null) d.textContent = !state.km ? "Needs a distance" : "Needs a " + FUELS[r.c.fuel] + " price";
+      else if(r.cost===min){ d.textContent = "Cheapest"; d.className="d best"; }
+      else { d.textContent = "+" + money.format(r.cost-min); d.className="d more"; }
+      b.onclick = ()=>{ state.activeId = r.c.id; save(); renderOutputs(); };
+      li.append(b); ul.append(li);
+    });
+    $("saving").textContent = (priced.length>=2 && max>min) ? "Taking the " + priced[0].c.name + " instead of the " + priced[priced.length-1].c.name + " saves " + money.format(max-min) + " on this trip." : "";
+  }
+
+  // ---------- saved places and trips ----------
+  const placeFor = addr => state.places.find(p=>norm(p.address)===norm(addr) && norm(addr));
+  function chip(text, onClick, cls){ const b=document.createElement("button"); b.type="button"; b.className="chip"+(cls?" "+cls:""); b.textContent=text; b.onclick=onClick; return b; }
+  function renderChips(){
+    ["to","from"].forEach(f=>{
+      const box = $("chips_"+f); box.innerHTML = "";
+      state.places.forEach(p=>{
+        const b = chip(p.label, ()=>{ state[f]=p.address; $(f).value=p.address; state.pts[f]= okPt(p)?{lat:p.lat,lng:p.lng}:null; hideSugg(f); onTripChange(); });
+        b.setAttribute("aria-pressed", String(!!state[f].trim() && norm(p.address)===norm(state[f]))); b.title = p.address; box.append(b);
+      });
+      PRESETS.forEach(l=>{ if(!state.places.some(p=>norm(p.label)===norm(l))) box.append(chip("+ " + l, ()=>openPlaceEditor(f, null, l), "ghost")); });
+      if(state[f].trim() && !placeFor(state[f])) box.append(chip("Save this place", ()=>openPlaceEditor(f, null, ""), "ghost"));
+    });
+  }
+  function renderPlaces(){
+    const ul = $("places"); ul.innerHTML = "";
+    if(!state.places.length){ const li=document.createElement("li"); li.className="empty-state"; li.textContent="Save places like Home and Work, then tap them to fill the To or From box."; ul.append(li); return; }
+    state.places.forEach(p=>{
+      const li = document.createElement("li"); li.className="item";
+      li.innerHTML = '<div class="who"><div class="nm"></div><div class="sp"></div></div><div class="acts"><button class="btn ghost small" type="button" data-a="edit">Edit</button><button class="btn danger small" type="button" data-a="del">Delete</button></div>';
+      li.querySelector(".nm").textContent = p.label; li.querySelector(".sp").textContent = p.address;
+      li.querySelector('[data-a=edit]').onclick = ()=>openPlaceEditor(null, p);
+      const del = li.querySelector('[data-a=del]');
+      if(pendingDelete==="place:"+p.id) del.textContent = "Tap to confirm";
+      del.onclick = ()=>confirmDelete("place:"+p.id, ()=>{
+        state.places = state.places.filter(x=>x.id!==p.id);
+        if(placeCtx && placeCtx.id===p.id) closePlaceEditor();
+        save(); renderPlaces(); renderChips();
+      }, renderPlaces);
+      ul.append(li);
+    });
+  }
+  function renderTrips(){
+    const ul = $("trips"); ul.innerHTML = "";
+    const entries = Object.entries(state.trips).sort((a,b)=>b[1].t-a[1].t);
+    $("tripsH").hidden = !entries.length;
+    entries.forEach(([k,v])=>{
+      const [f,t] = k.split("→");
+      const disp = (a, orig) => { const p = state.places.find(x=>norm(x.address)===a); return p ? p.label : (orig || a); };
+      const li = document.createElement("li"); li.className="item";
+      li.innerHTML = '<div class="who"><div class="nm"></div><div class="sp"></div></div><div class="acts"><button class="btn danger small" type="button">Delete</button></div>';
+      li.querySelector(".nm").textContent = disp(f, v.a) + " to " + disp(t, v.b);
+      li.querySelector(".sp").textContent = num(v.km) + " km each way";
+      const del = li.querySelector("button");
+      if(pendingDelete==="trip:"+k) del.textContent = "Tap to confirm";
+      del.onclick = ()=>confirmDelete("trip:"+k, ()=>{ delete state.trips[k]; save(); renderTrips(); }, renderTrips);
+      ul.append(li);
+    });
+  }
+  const pForm = $("placeEditor");
+  function openPlaceEditor(field, place, presetLabel){
+    placeCtx = {field, id: place ? place.id : null};
+    $("pLabel").value = place ? place.label : (presetLabel || "");
+    $("pAddr").value = place ? place.address : (field ? state[field] : "");
+    $("savePlace").textContent = place ? "Save changes" : "Save place";
+    const pr = $("presets"); pr.innerHTML = "";
+    PRESETS.forEach(l=> pr.append(chip(l, ()=>{ $("pLabel").value = l; })));
+    (field ? $("field_"+field) : $("places")).after(pForm);
+    pForm.hidden = false; ($("pAddr").value ? $("pLabel") : $("pAddr")).focus();
+  }
+  function closePlaceEditor(){ placeCtx = null; pForm.hidden = true; }
+  $("cancelPlace").onclick = closePlaceEditor;
+  $("addPlace").onclick = ()=>openPlaceEditor(null, null, "");
+  pForm.addEventListener("submit", e=>{
+    e.preventDefault();
+    const label = $("pLabel").value.trim(), address = $("pAddr").value.trim();
+    if(!label || !address) return;
+    let p = placeCtx && placeCtx.id ? state.places.find(x=>x.id===placeCtx.id) : null;
+    if(!p) p = state.places.find(x=>norm(x.label)===norm(label));
+    const f0 = placeCtx && placeCtx.field;
+    const pt = f0 && norm(state[f0])===norm(address) ? state.pts[f0] : null;
+    if(p){ p.label=label; if(norm(p.address)!==norm(address)){ delete p.lat; delete p.lng; } p.address=address; if(pt){ p.lat=pt.lat; p.lng=pt.lng; } }
+    else { const np = {id: uid("p"), label, address}; if(pt){ np.lat=pt.lat; np.lng=pt.lng; } state.places.push(np); }
+    if(f0){ state[f0] = address; $(f0).value = address; }
+    closePlaceEditor(); onTripChange(); renderPlaces();
+  });
+
+  // ---------- car editor ----------
+  const fuelSel = $("cFuel");
+  Object.entries(FUELS).forEach(([k,v])=>{ const o=document.createElement("option"); o.value=k; o.textContent=v; fuelSel.append(o); });
+  function openCarEditor(car){
+    editingId = car ? car.id : null;
+    $("cName").value = car ? car.name : ""; $("cL100").value = car ? car.l100 : "";
+    fuelSel.value = car ? car.fuel : (state.cars[0]?.fuel || "u91");
+    $("saveCar").textContent = car ? "Save changes" : "Save car";
+    $("editor").hidden = false; $("cName").focus();
+  }
+  function closeCarEditor(){ editingId=null; $("editor").hidden = true; }
+  $("addCar").onclick = ()=>openCarEditor(null);
+  $("cancelCar").onclick = closeCarEditor;
+  $("editor").addEventListener("submit", e=>{
+    e.preventDefault();
+    const name = $("cName").value.trim(), l100 = parseFloat($("cL100").value);
+    if(!name || !(l100>0)) return;
+    if(editingId){ const c = state.cars.find(x=>x.id===editingId); if(c){ c.name=name; c.l100=l100; c.fuel=fuelSel.value; } }
+    else { const id = uid("c"); state.cars.push({id, name, l100, fuel:fuelSel.value}); state.activeId = id; }
+    closeCarEditor(); save(); renderAll();
+  });
+
+  // ---------- trip inputs ----------
+  const tripKey = () => norm(state.from) + "→" + norm(state.to);
+  const revKey = () => norm(state.to) + "→" + norm(state.from);
+  const savedTrip = () => (state.from.trim() && state.to.trim()) ? (state.trips[tripKey()] || state.trips[revKey()] || null) : null;
+  function onTripChange(){
+    ["to","from"].forEach(f=>{ $("clr_"+f).hidden = !state[f]; });
+    renderChips(); renderGmaps(); applySavedTrip(); renderMapNote(); save();
+  }
+  function applySavedTrip(){
+    const t = savedTrip(); if(!t) return;
+    if(t.min) state.minutes = t.min;
+    if(state.km !== t.km){ state.km = t.km; $("km").value = t.km; }
+    renderOutputs();
+    setStatus("Using your saved distance for this trip: " + num(t.km) + " km.");
+  }
+  function renderGmaps(){
+    const a = $("gmaps");
+    if(state.from.trim() && state.to.trim()){ a.href = "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=" + encodeURIComponent(state.from) + "&destination=" + encodeURIComponent(state.to); a.hidden = false; }
+    else a.hidden = true;
+  }
+  $("km").addEventListener("input", e=>{ const v=parseFloat(e.target.value); const old=state.km; if(state.minutes && old>0 && v>0) state.minutes = state.minutes*v/old; state.km = v>0 ? v : null; renderOutputs(); save(); });
+  $("km").addEventListener("change", ()=>{
+    if(!(state.km>0) || !state.from.trim() || !state.to.trim()) return;
+    delete state.trips[revKey()];
+    state.trips[tripKey()] = {km: state.km, min: state.minutes, t: Date.now(), a: state.from.trim().slice(0,160), b: state.to.trim().slice(0,160)};
+    setStatus("Saved. This trip will use " + num(state.km) + " km from now on, in either direction.");
+    renderTrips(); save();
+  });
+  $("rt").addEventListener("change", e=>{ state.roundTrip=e.target.checked; renderOutputs(); save(); });
+  $("activeCar").addEventListener("change", e=>{ state.activeId=e.target.value; renderOutputs(); save(); });
+  $("swap").onclick = ()=>{ [state.from,state.to]=[state.to,state.from]; [state.pts.from,state.pts.to]=[state.pts.to,state.pts.from]; hydrateInputs(); onTripChange(); };
+  function hydrateInputs(){
+    $("from").value = state.from; $("to").value = state.to; $("km").value = state.km ?? ""; $("rt").checked = state.roundTrip;
+    ["to","from"].forEach(f=>{ $("clr_"+f).hidden = !state[f]; });
+  }
+
+  // ---------- place search (Photon, OpenStreetMap) ----------
+  const SG = {to:null, from:null}, lastPick = {to:null, from:null};
+  function bias(){
+    const h = state.places.find(p=>norm(p.label)==="home" && okPt(p)) || state.places.find(p=>okPt(p));
+    return h ? "&lat=" + h.lat + "&lon=" + h.lng : "";
+  }
+  function fmt(p){
+    const line2 = [ [p.housenumber, p.street].filter(Boolean).join(" "), p.district, p.city || p.county, p.state, p.postcode ].filter(Boolean);
+    const title = p.name || [p.housenumber, p.street].filter(Boolean).join(" ") || p.city || p.state || "Place";
+    const sub = line2.filter(x=>x !== title).join(", ");
+    const kind = p.osm_value && p.osm_key !== "place" ? String(p.osm_value).replace(/_/g," ") : (p.osm_value || "place");
+    return {title, sub, kind: kind.charAt(0).toUpperCase()+kind.slice(1), value: sub ? title + ", " + sub : title};
+  }
+  function hideSugg(f){ $("sugg_"+f).hidden = true; $(f).setAttribute("aria-expanded","false"); if(SG[f]){ SG[f].ctl?.abort(); clearTimeout(SG[f].timer); } }
+  function paintSugg(f){
+    const sg = SG[f], box = $("sugg_"+f); box.innerHTML = "";
+    sg.opts.forEach((o,i)=>{
+      const d = document.createElement("div"); d.className="opt"; d.id="opt_"+f+"_"+i; d.setAttribute("role","option"); d.setAttribute("aria-selected", String(i===sg.active));
+      d.innerHTML = '<div class="tx"><div class="t"></div><div class="s"></div></div><span class="k"></span>';
+      d.querySelector(".t").textContent = o.title; d.querySelector(".s").textContent = o.sub || ""; d.querySelector(".k").textContent = o.kind;
+      d.addEventListener("pointerdown", e=>e.preventDefault());
+      d.addEventListener("click", ()=>choose(f, o));
+      box.append(d);
+    });
+    if(sg.loading || sg.note){ const m=document.createElement("div"); m.className="msg"; m.textContent = sg.loading ? "Searching…" : sg.note; box.append(m); }
+    const show = sg.opts.length || sg.loading || sg.note;
+    box.hidden = !show; $(f).setAttribute("aria-expanded", String(!!show));
+    if(sg.active>=0) $(f).setAttribute("aria-activedescendant","opt_"+f+"_"+sg.active); else $(f).removeAttribute("aria-activedescendant");
+  }
+  function localMatches(q){
+    const n = norm(q);
+    return state.places.filter(p=>norm(p.label).startsWith(n) || norm(p.address).includes(n))
+      .map(p=>({kind:"Saved", title:p.label, sub:p.address, value:p.address, lat:p.lat, lng:p.lng}));
+  }
+  function suggest(f){
+    const q = state[f].trim();
+    if(SG[f]){ SG[f].ctl?.abort(); clearTimeout(SG[f].timer); }
+    if(q.length < 3){ SG[f] = null; hideSugg(f); return; }
+    const sg = SG[f] = {q, opts:localMatches(q), active:-1, loading:true, note:"", ctl:null, timer:0};
+    paintSugg(f);
+    sg.timer = setTimeout(async ()=>{
+      const ctl = sg.ctl = new AbortController();
+      try{
+        const res = await fetch(PHOTON + "?q=" + encodeURIComponent(q) + "&limit=6&lang=en&bbox=" + AU_BBOX + bias(), {signal:ctl.signal});
+        if(!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        if(SG[f]!==sg) return;
+        const seen = new Set(sg.opts.map(o=>norm(o.value)));
+        const found = (data.features||[]).map(ft=>{
+          const o = fmt(ft.properties||{});
+          o.lng = ft.geometry?.coordinates?.[0]; o.lat = ft.geometry?.coordinates?.[1];
+          return o;
+        }).filter(o=>okPt(o) && !seen.has(norm(o.value)));
+        sg.opts = [...sg.opts, ...found].slice(0,12); sg.loading = false;
+        sg.note = sg.opts.length ? "" : "No matches. Try adding the suburb.";
+        paintSugg(f);
+      }catch(e){
+        if(SG[f]!==sg || e.name === "AbortError") return;
+        sg.loading = false; sg.note = sg.opts.length ? "" : "Place search is unavailable right now.";
+        paintSugg(f);
+      }
+    }, 350);
+  }
+  function choose(f, o){
+    const sg = SG[f]; if(sg) lastPick[f] = {value:o.value, q:sg.q, opts:sg.opts.slice(), opt:o};
+    state[f] = o.value; $(f).value = o.value;
+    state.pts[f] = okPt(o) ? {lat:o.lat, lng:o.lng} : null;
+    SG[f] = null; hideSugg(f); onTripChange();
+  }
+  ["to","from"].forEach(f=>{
+    const inp = $(f);
+    inp.addEventListener("input", ()=>{ state[f]=inp.value; state.pts[f]=null; onTripChange(); suggest(f); });
+    const reopen = ()=>{
+      const lp = lastPick[f];
+      if(lp && state[f]===lp.value){
+        SG[f] = {q:lp.q, opts:lp.opts, active:lp.opts.indexOf(lp.opt), loading:false, note:"Tap another option to change it, or clear the box to search again.", ctl:null, timer:0};
+        paintSugg(f);
+      } else if(inp.value.trim().length>=3 && $("sugg_"+f).hidden) suggest(f);
+    };
+    inp.addEventListener("focus", reopen); inp.addEventListener("click", reopen);
+    inp.addEventListener("blur", ()=>setTimeout(()=>hideSugg(f), 160));
+    inp.addEventListener("keydown", e=>{
+      const sg = SG[f]; if(!sg || $("sugg_"+f).hidden) return;
+      if(e.key==="ArrowDown" || e.key==="ArrowUp"){ e.preventDefault(); const n=sg.opts.length; if(!n) return; sg.active=(sg.active+(e.key==="ArrowDown"?1:-1)+n)%n; paintSugg(f); }
+      else if(e.key==="Enter" && sg.active>=0 && sg.opts[sg.active]){ e.preventDefault(); choose(f, sg.opts[sg.active]); }
+      else if(e.key==="Escape") hideSugg(f);
+    });
+    $("clr_"+f).addEventListener("pointerdown", e=>e.preventDefault());
+    $("clr_"+f).onclick = ()=>{ state[f]=""; inp.value=""; state.pts[f]=null; lastPick[f]=null; SG[f]=null; hideSugg(f); onTripChange(); inp.focus(); };
+  });
+
+  // ---------- map ----------
+  let map = null, line = null, markers = [];
+  function ensureMap(){
+    if(map) return map;
+    map = L.map("map", {zoomControl:true, scrollWheelZoom:true});
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19, subdomains: "abcd",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>, routing by <a href="http://project-osrm.org/">OSRM</a>'
+    }).addTo(map);
+    map.setView([-33.87, 151.21], 9);
+    return map;
+  }
+  function pin(latlng, text, colour, size){
+    return L.marker(latlng, {icon: L.divIcon({className:"", html:'<div class="pin"><i style="background:'+colour+'"></i><b></b></div>', iconSize:[0,0]}), interactive:false})
+      .on("add", ev=>{ ev.target.getElement().querySelector("b").textContent = text; });
+  }
+  function drawRoute(){
+    if(!state.route || !state.route.line.length) return;
+    const m = ensureMap();
+    $("mapCard").hidden = false;
+    if(line) line.remove();
+    markers.forEach(x=>x.remove()); markers = [];
+    const pts = state.route.line;
+    line = L.polyline(pts, {color:"#3FA673", weight:5, opacity:.95}).addTo(m);
+    const a = pts[0], b = pts[pts.length-1];
+    const nameOf = f => { const p = placeFor(state[f]); return p ? p.label : (state[f].split(",")[0] || f); };
+    markers = [ pin(a, "From: " + nameOf("from"), "#E3EAE5"), pin(b, "To: " + nameOf("to"), "#FFB21A") ];
+    markers.forEach(x=>x.addTo(m));
+    setTimeout(()=>{ m.invalidateSize(); m.fitBounds(line.getBounds(), {padding:[36,36]}); }, 50);
+    renderMapNote();
+  }
+  function renderMapNote(){
+    if(!state.route) return;
+    $("mapNote").textContent = (state.route.key === tripKey() ? "" : "This map is for your last lookup. ") +
+      "Road route from OpenStreetMap data, without live traffic.";
+  }
+  $("zFit").onclick = ()=>{ if(map && line) map.fitBounds(line.getBounds(), {padding:[36,36]}); };
+
+  // ---------- geocode + route ----------
+  const status = $("distStatus");
+  function setStatus(t, err){ status.textContent = t; status.classList.toggle("err", !!err); }
+  async function geocodeOne(text){
+    const res = await fetch(PHOTON + "?q=" + encodeURIComponent(text) + "&limit=1&lang=en&bbox=" + AU_BBOX + bias());
+    if(!res.ok) throw new Error("search failed");
+    const d = await res.json();
+    const ft = (d.features||[])[0];
+    if(!ft) return null;
+    return {lat: ft.geometry.coordinates[1], lng: ft.geometry.coordinates[0], name: fmt(ft.properties||{}).value};
+  }
+  $("getDist").onclick = async ()=>{
+    const from = state.from.trim(), to = state.to.trim();
+    if(!from || !to){ setStatus("Enter both a destination and a starting point.", true); return; }
+    const btn = $("getDist"); btn.disabled = true; setStatus("Finding the route…");
+    try{
+      for(const f of ["from","to"]){
+        if(!okPt(state.pts[f])){
+          const g = await geocodeOne(state[f]);
+          if(!g){ setStatus("Couldn't find " + (f==="from" ? "the starting point" : "the destination") + ". Pick one from the suggestions.", true); btn.disabled=false; return; }
+          state.pts[f] = {lat:g.lat, lng:g.lng};
+        }
+      }
+      const a = state.pts.from, b = state.pts.to;
+      const res = await fetch(OSRM + "/" + a.lng + "," + a.lat + ";" + b.lng + "," + b.lat + "?overview=full&geometries=geojson&alternatives=false&steps=false");
+      if(!res.ok) throw new Error("routing failed");
+      const d = await res.json();
+      const rt = (d.routes||[])[0];
+      if(!rt){ setStatus("No driving route found between those points.", true); btn.disabled=false; return; }
+      state.km = Math.round(rt.distance/100)/10;
+      state.minutes = Math.round(rt.duration/60);
+      state.route = {key: tripKey(), line: rt.geometry.coordinates.map(c=>[c[1], c[0]])};
+      $("km").value = state.km;
+      const mins = state.minutes;
+      setStatus("Road distance " + num(state.km) + " km, about " + (mins>=60 ? Math.floor(mins/60)+" h "+(mins%60)+" min" : mins+" min") + " without traffic.");
+      renderOutputs(); drawRoute(); save();
+    }catch(e){
+      setStatus("Lookup failed. Check your connection, or type the distance in below.", true);
+    }finally{ $("getDist").disabled = false; }
+  };
+  $("useLoc").onclick = ()=>{
+    if(!navigator.geolocation){ setStatus("This browser can't share your location.", true); return; }
+    setStatus("Getting your location…");
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const {latitude:lat, longitude:lng} = pos.coords;
+      state.pts.from = {lat, lng};
+      try{
+        const res = await fetch("https://photon.komoot.io/reverse?lat=" + lat + "&lon=" + lng + "&lang=en");
+        const d = await res.json();
+        const ft = (d.features||[])[0];
+        state.from = ft ? fmt(ft.properties||{}).value : lat.toFixed(5) + ", " + lng.toFixed(5);
+      }catch(e){ state.from = lat.toFixed(5) + ", " + lng.toFixed(5); }
+      $("from").value = state.from; onTripChange();
+      setStatus("Starting point set to your current location.");
+    }, ()=>setStatus("Couldn't get your location. Check the location permission for this site.", true), {enableHighAccuracy:false, timeout:10000});
+  };
+
+  // ---------- backup ----------
+  $("expBtn").onclick = ()=>{
+    const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "trip-fuel-cost-backup.json"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  };
+  $("impBtn").onclick = ()=>$("impFile").click();
+  $("impFile").addEventListener("change", async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    try{ state = sanitize(JSON.parse(await file.text())); save(); hydrateInputs(); renderAll(); if(state.route) drawRoute(); $("sync").textContent = "Backup restored"; }
+    catch(err){ $("sync").textContent = "That file couldn't be read"; }
+    e.target.value = "";
+  });
+
+  function renderOutputs(){ renderReadout(); renderCompare(); }
+  function renderAll(){ renderPrices(); renderCars(); renderPlaces(); renderTrips(); renderChips(); renderGmaps(); renderOutputs(); }
+
+  state = sanitize(load());
+  hydrateInputs(); renderAll();
+  if(state.route) drawRoute();
+})();
+</script>
+</body>
+</html>
